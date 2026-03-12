@@ -8,6 +8,7 @@ import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.UserStatus;
 import com.fudgeq.api.service.UserService;
 import com.fudgeq.api.utill.JWTTokenGenerator;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,12 +26,12 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
 
     @PostMapping("/register")
-    public ResponseEntity<UserDtoReturn> registerUser(@RequestBody UserDto userDto) {
+    public ResponseEntity<UserDtoReturn> registerUser(@Valid @RequestBody UserDto userDto) {
         return ResponseEntity.ok(userService.registerUser(userDto));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> loginUser(@RequestBody LoginRequestDto loginRequestDto) {
+    public ResponseEntity<LoginResponseDto> loginUser(@Valid @RequestBody LoginRequestDto loginRequestDto) {
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -51,7 +52,6 @@ public class AuthController {
 
         LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
 
-        // Generate token using our custom generator
         String token = jwtTokenGenerator.generateToken(user);
         loginResponse.setToken(token);
 
