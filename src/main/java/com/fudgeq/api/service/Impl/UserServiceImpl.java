@@ -9,10 +9,12 @@ import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.AuthProvider;
 import com.fudgeq.api.enums.Role;
 import com.fudgeq.api.enums.UserStatus;
+import com.fudgeq.api.exception.UserAlreadyExistsException;
 import com.fudgeq.api.repo.UserRepo;
 import com.fudgeq.api.service.UserService;
 import com.fudgeq.api.utill.AppConstants;
 import com.fudgeq.api.utill.CustomIdGenerator;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,7 +43,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserDtoReturn registerUser(UserDto userDto) {
         if (userRepo.existsByEmail(userDto.getEmail())) {
-            throw new RuntimeException("Email already exists: " + userDto.getEmail());
+            throw new UserAlreadyExistsException("User with email " + userDto.getEmail() + " already exists!");
         }
 
         // Generate IDs
@@ -68,7 +71,6 @@ public class UserServiceImpl implements UserService {
                 .build();
         user.setProfile(profile);
 
-        // PrePersist handles status logic (ADMIN/MODERATOR -> PENDING)
         User savedUser = userRepo.save(user);
         return mapper.map(savedUser, UserDtoReturn.class);
     }
@@ -130,19 +132,22 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getUserEntityByEmail(String email) {
         return userRepo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found: " + email));
+                .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
     }
 
     @Override
     public User getCurrentUserEntity() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return getUserEntityByEmail(email);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("No authenticated user found in security context");
+        }
+        return getUserEntityByEmail(authentication.getName());
     }
 
     @Override
     public User getUserEntityById(String userId) {
         return userRepo.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found ID: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
     }
 
     @Override
