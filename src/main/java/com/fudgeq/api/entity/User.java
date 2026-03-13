@@ -52,9 +52,13 @@ public class User extends BaseEntity {
     @PrePersist
     protected void onCreate() {
         if (this.status == null) {
-            this.status = (this.role == Role.ADMIN || this.role == Role.MODERATOR)
-                    ? UserStatus.PENDING_APPROVAL
-                    : UserStatus.APPROVED;
+            // Only MODERATOR requires admin approval.
+            // ADMIN, CUSTOMER, and others are auto-approved.
+            if (this.role == Role.MODERATOR) {
+                this.status = UserStatus.PENDING_APPROVAL;
+            } else {
+                this.status = UserStatus.APPROVED;
+            }
         }
     }
 }
