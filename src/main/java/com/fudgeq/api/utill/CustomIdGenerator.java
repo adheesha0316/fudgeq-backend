@@ -26,7 +26,10 @@ public class CustomIdGenerator {
         } else if (prefix.equals(AppConstants.PREFIX_PRODUCT)) { // Product logic added
             tableName = "products";
             idColumn = "product_id";
-        } else {
+        } else if (prefix.equals(AppConstants.PREFIX_CART)) { // Cart logic added
+            tableName = "cart_items";
+            idColumn = "cart_item_id";
+        }else {
             throw new IllegalArgumentException("Unknown prefix for ID generation: " + prefix);
         }
 
