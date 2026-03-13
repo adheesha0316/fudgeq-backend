@@ -5,6 +5,7 @@ import com.fudgeq.api.enums.Role;
 import com.fudgeq.api.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 
 @Data
@@ -14,6 +15,7 @@ import lombok.*;
 @AllArgsConstructor
 @Entity
 @Table(name = "users")
+@EntityListeners(AuditingEntityListener.class)
 public class User extends BaseEntity {
 
     @Id
