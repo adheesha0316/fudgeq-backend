@@ -23,6 +23,9 @@ public class CustomIdGenerator {
         } else if (prefix.equals(AppConstants.PREFIX_AUDIT)) {
             tableName = "audit_logs";
             idColumn = "log_id"; // Changed to match your AuditLog field logId
+        } else if (prefix.equals(AppConstants.PREFIX_PRODUCT)) { // Product logic added
+            tableName = "products";
+            idColumn = "product_id";
         } else {
             throw new IllegalArgumentException("Unknown prefix for ID generation: " + prefix);
         }
