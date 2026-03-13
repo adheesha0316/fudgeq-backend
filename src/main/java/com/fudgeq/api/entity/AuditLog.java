@@ -8,7 +8,9 @@ import lombok.*;
 
 @Entity
 @Table(name = "audit_logs")
-@Data
+@Getter
+@Setter
+@ToString
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,7 +18,7 @@ import lombok.*;
 public class AuditLog extends BaseEntity {
 
     @Id
-    @Column(nullable = false, updatable = false)
+    @Column(name = "log_id", nullable = false, updatable = false)
     private String auditId;
 
     @Column(nullable = false, updatable = false)
