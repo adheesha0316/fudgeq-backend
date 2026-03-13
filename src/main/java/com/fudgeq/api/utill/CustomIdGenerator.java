@@ -14,27 +14,24 @@ public class CustomIdGenerator {
         String tableName;
         String idColumn;
 
-        // Determine table based on prefix
         if (prefix.equals(AppConstants.PREFIX_USER)) {
             tableName = "users";
             idColumn = "user_id";
-        } else if (prefix.contains("PRF")) {
+        } else if (prefix.equals(AppConstants.PREFIX_PROFILE)) {
             tableName = "user_profiles";
             idColumn = "profile_id";
-        } else if (prefix.contains("AUD")) {
+        } else if (prefix.equals(AppConstants.PREFIX_AUDIT)) {
             tableName = "audit_logs";
-            idColumn = "audit_id";
+            idColumn = "log_id"; // Changed to match your AuditLog field logId
         } else {
-            throw new IllegalArgumentException("Unknown prefix for ID generation");
+            throw new IllegalArgumentException("Unknown prefix for ID generation: " + prefix);
         }
 
         String sql = "SELECT COUNT(" + idColumn + ") FROM " + tableName;
         Long count = jdbcTemplate.queryForObject(sql, Long.class);
 
-        // If count is null, start from 1, otherwise increment
         long nextNum = (count == null) ? 1 : count + 1;
 
-        // Format: PREFIX + 9-digit padded number (e.g., FQ-USR-000000001)
         return String.format("%s%09d", prefix, nextNum);
     }
 }
