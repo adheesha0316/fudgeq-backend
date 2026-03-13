@@ -93,11 +93,25 @@ public class CartServiceImpl implements CartService {
         cartRepo.save(item);
     }
 
-    // Helper to map complex fields for UI
+    @Override
+    public List<CartResponseDto> getCartByUserId(String userId) {
+        User user = userService.getUserEntityById(userId);
+        return cartRepo.findByUser(user).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CartResponseDto> getAllActiveCarts() {
+        return cartRepo.findAll().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    // Existing helper method
     private CartResponseDto convertToDto(CartItem item) {
         CartResponseDto dto = mapper.map(item, CartResponseDto.class);
         dto.setProductName(item.getProduct().getName());
-        // Getting first image as the main image
         if (item.getProduct().getImageUrls() != null && !item.getProduct().getImageUrls().isEmpty()) {
             dto.setProductImage(item.getProduct().getImageUrls().get(0));
         }

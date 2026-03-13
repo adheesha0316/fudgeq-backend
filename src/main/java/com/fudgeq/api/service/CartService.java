@@ -10,4 +10,8 @@ public interface CartService {
     List<CartResponseDto> getMyCart();
     void removeFromCart(String cartItemId);
     void updateQuantity(String cartItemId, int quantity);
+
+    // Admin methods
+    List<CartResponseDto> getCartByUserId(String userId);
+    List<CartResponseDto> getAllActiveCarts();
 }
