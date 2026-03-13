@@ -50,6 +50,13 @@ public class UserServiceImpl implements UserService {
         String userId = idGenerator.generateNextId(AppConstants.PREFIX_USER);
         String profileId = idGenerator.generateNextId("FQ-PRF-");
 
+        // SECURITY CHECK: Temporarily disabled for development ease
+        /*
+        if (userDto.getRole() == Role.ADMIN) {
+            throw new RuntimeException("Public registration for ADMIN role is strictly prohibited.");
+            }
+        */
+
         // Set default role if null
         Role role = (userDto.getRole() != null) ? userDto.getRole() : Role.CUSTOMER;
 
