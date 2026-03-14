@@ -2,6 +2,7 @@ package com.fudgeq.api.service.Impl;
 
 import com.fudgeq.api.dto.NotificationResponseDto;
 import com.fudgeq.api.entity.Notification;
+import com.fudgeq.api.entity.Order;
 import com.fudgeq.api.entity.User;
 import com.fudgeq.api.repo.NotificationRepo;
 import com.fudgeq.api.repo.UserRepo;
@@ -29,13 +30,13 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public void createNotification(User user, String title, String message, String orderId) {
+    public void createNotification(User user, String title, String message, Order order) {
         Notification notification = Notification.builder()
                 .notificationId(idGenerator.generateNextId(AppConstants.PREFIX_NOTIFICATION))
                 .user(user)
                 .title(title)
                 .message(message)
-                .orderId(orderId)
+                .order(order)
                 .isRead(false)
                 .build();
         notificationRepo.save(notification);
