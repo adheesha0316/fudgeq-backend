@@ -1,5 +1,6 @@
 package com.fudgeq.api.service.Impl;
 
+import com.fudgeq.api.dto.CouponResponseDto;
 import com.fudgeq.api.dto.OrderItemDto;
 import com.fudgeq.api.dto.OrderRequestDto;
 import com.fudgeq.api.dto.OrderResponseDto;
@@ -10,6 +11,7 @@ import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.OrderStatus;
 import com.fudgeq.api.repo.CartRepo;
 import com.fudgeq.api.repo.OrderRepo;
+import com.fudgeq.api.service.CouponService;
 import com.fudgeq.api.service.NotificationService;
 import com.fudgeq.api.service.OrderService;
 import com.fudgeq.api.service.UserService;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepo cartRepo;
     private final NotificationService notificationService;
     private final UserService userService;
+    private final CouponService couponService;
     private final CustomIdGenerator idGenerator;
     private final ModelMapper mapper;
 
@@ -47,12 +51,52 @@ public class OrderServiceImpl implements OrderService {
             throw new RuntimeException("Cart is empty. Cannot place order.");
         }
 
-        // Calculate total order amount from cart items
-        BigDecimal totalAmount = cartItems.stream()
-                .map(CartItem::getSubTotal)
+        // 1. Calculate and build Order Items while checking for Product-Specific Coupons
+        List<OrderItem> orderItems = cartItems.stream().map(cartItem -> {
+            BigDecimal itemSubTotal = cartItem.getSubTotal();
+
+            // Logic: If coupon matches this specific product, apply discount here
+            if (dto.getCouponCode() != null) {
+                try {
+                    CouponResponseDto coupon = couponService.validateCoupon(dto.getCouponCode(), cartItem.getProduct().getProductId());
+                    // Apply discount: Price - (Price * percentage / 100)
+                    BigDecimal discountFactor = coupon.getDiscountPercentage().divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
+                    BigDecimal discountAmount = itemSubTotal.multiply(discountFactor);
+                    itemSubTotal = itemSubTotal.subtract(discountAmount);
+                } catch (Exception e) {
+                    // If validation fails for this specific item, we just skip and check for global later
+                }
+            }
+
+            return OrderItem.builder()
+                    .orderItemId(idGenerator.generateNextId(AppConstants.PREFIX_ORDER_ITEM))
+                    .product(cartItem.getProduct())
+                    .quantity(cartItem.getQuantity())
+                    .priceAtPurchase(cartItem.getUnitPrice())
+                    .subTotal(itemSubTotal)
+                    .build();
+        }).collect(Collectors.toList());
+
+        // 2. Calculate initial total from items
+        BigDecimal totalAmount = orderItems.stream()
+                .map(OrderItem::getSubTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Initialize order with PENDING_REVIEW status (Admin must confirm delivery date)
+        // 3. Check for Global Coupon (if it wasn't a product-specific one)
+        if (dto.getCouponCode() != null) {
+            try {
+                // If the coupon is global (productId is null in DB), apply to the whole total
+                CouponResponseDto coupon = couponService.getCouponByCode(dto.getCouponCode());
+                if (coupon.getProductId() == null) {
+                    BigDecimal globalDiscountFactor = coupon.getDiscountPercentage().divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
+                    BigDecimal globalDiscountAmount = totalAmount.multiply(globalDiscountFactor);
+                    totalAmount = totalAmount.subtract(globalDiscountAmount);
+                }
+            } catch (Exception e) {
+                // Invalid coupon for this context - optional: log or throw error
+            }
+        }
+
         Order order = Order.builder()
                 .orderId(idGenerator.generateNextId(AppConstants.PREFIX_ORDER))
                 .user(currentUser)
@@ -66,30 +110,18 @@ public class OrderServiceImpl implements OrderService {
                 .isPaid(false)
                 .build();
 
-        // Convert CartItems to OrderItems
-        List<OrderItem> orderItems = cartItems.stream().map(cartItem ->
-                OrderItem.builder()
-                        .orderItemId(idGenerator.generateNextId(AppConstants.PREFIX_ORDER_ITEM))
-                        .order(order)
-                        .product(cartItem.getProduct())
-                        .quantity(cartItem.getQuantity())
-                        .priceAtPurchase(cartItem.getUnitPrice())
-                        .subTotal(cartItem.getSubTotal())
-                        .build()
-        ).collect(Collectors.toList());
-
+        // Link items to the order
+        orderItems.forEach(item -> item.setOrder(order));
         order.setOrderItems(orderItems);
-        Order savedOrder = orderRepo.save(order);
 
-        // Clear user's cart after successful order placement
+        Order savedOrder = orderRepo.save(order);
         cartRepo.deleteAll(cartItems);
 
-        // Notify user about order placement
         notificationService.createNotification(
                 currentUser,
                 "Order Placed! 📦",
-                "Your order " + savedOrder.getOrderId() + " has been placed and is pending admin review.",
-                savedOrder // Passing the Order object instead of ID string
+                "Your order " + savedOrder.getOrderId() + " has been placed. Final total: LKR " + totalAmount,
+                savedOrder
         );
 
         return convertToResponseDto(savedOrder);
@@ -185,7 +217,7 @@ public class OrderServiceImpl implements OrderService {
         notificationService.createNotification(
                 order.getUser(),
                 "Payment Received ✅",
-                "We have received your payment for order " + orderId + ". Your fudge is being prepared!",
+                "Payment for order " + orderId + " received. Preparing your order!",
                 savedOrder
         );
     }
