@@ -1,5 +1,7 @@
 package com.fudgeq.api.controller;
 
+import com.fudgeq.api.dto.LoginResponseDto;
+import com.fudgeq.api.dto.StandardResponse;
 import com.fudgeq.api.dto.UserDtoReturn;
 import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.Role;
@@ -28,15 +30,19 @@ public class UserController {
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<UserDtoReturn> getMyProfile(Authentication authentication) {
+    public ResponseEntity<StandardResponse<UserDtoReturn>> getMyProfile(Authentication authentication) {
         String email = authentication.getName();
         User user = userService.getUserEntityByEmail(email);
-        return ResponseEntity.ok(mapper.map(user, UserDtoReturn.class));
+        UserDtoReturn profile = mapper.map(user, UserDtoReturn.class);
+
+        return ResponseEntity.ok(
+                StandardResponse.success("User profile retrieved successfully", profile)
+        );
     }
 
     @PatchMapping("/upgrade-to-customer")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Object>> upgradeMyRole(Authentication authentication) {
+    public ResponseEntity<StandardResponse<LoginResponseDto>> upgradeMyRole(Authentication authentication) {
         String email = authentication.getName();
         User user = userService.getUserEntityByEmail(email);
 
@@ -48,11 +54,17 @@ public class UserController {
         User updatedUser = userService.getUserEntityById(user.getUserId());
         String newToken = jwtTokenGenerator.generateToken(updatedUser);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("user", updatedUserDto);
-        response.put("accessToken", newToken);
-        response.put("message", "Successfully upgraded to CUSTOMER. Your session has been updated.");
+        LoginResponseDto loginResponse = LoginResponseDto.builder()
+                .userId(updatedUserDto.getUserId())
+                .email(updatedUserDto.getEmail())
+                .firstName(updatedUserDto.getFirstName())
+                .role(updatedUserDto.getRole())
+                .status(updatedUserDto.getStatus())
+                .token(newToken)
+                .build();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                StandardResponse.success("Successfully upgraded to CUSTOMER. Session updated.", loginResponse)
+        );
     }
 }

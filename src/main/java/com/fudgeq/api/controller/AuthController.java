@@ -1,9 +1,6 @@
 package com.fudgeq.api.controller;
 
-import com.fudgeq.api.dto.LoginRequestDto;
-import com.fudgeq.api.dto.LoginResponseDto;
-import com.fudgeq.api.dto.UserDto;
-import com.fudgeq.api.dto.UserDtoReturn;
+import com.fudgeq.api.dto.*;
 import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.UserStatus;
 import com.fudgeq.api.service.UserService;
@@ -26,12 +23,15 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
 
     @PostMapping("/register")
-    public ResponseEntity<UserDtoReturn> registerUser(@Valid @RequestBody UserDto userDto) {
-        return ResponseEntity.ok(userService.registerUser(userDto));
+    public ResponseEntity<StandardResponse<UserDtoReturn>> registerUser(@Valid @RequestBody UserDto userDto) {
+        UserDtoReturn registeredUser = userService.registerUser(userDto);
+        return ResponseEntity.ok(
+                StandardResponse.success("User registered successfully. Please wait for approval.", registeredUser)
+        );
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> loginUser(@Valid @RequestBody LoginRequestDto loginRequestDto) {
+    public ResponseEntity<StandardResponse<LoginResponseDto>> loginUser(@Valid @RequestBody LoginRequestDto loginRequestDto) {
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -51,10 +51,11 @@ public class AuthController {
         }
 
         LoginResponseDto loginResponse = userService.loginUser(loginRequestDto);
-
         String token = jwtTokenGenerator.generateToken(user);
         loginResponse.setToken(token);
 
-        return ResponseEntity.ok(loginResponse);
+        return ResponseEntity.ok(
+                StandardResponse.success("Login successful", loginResponse)
+        );
     }
 }
