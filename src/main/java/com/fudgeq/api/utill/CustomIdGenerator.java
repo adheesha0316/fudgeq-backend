@@ -29,7 +29,13 @@ public class CustomIdGenerator {
         } else if (prefix.equals(AppConstants.PREFIX_CART)) { // Cart logic added
             tableName = "cart_items";
             idColumn = "cart_item_id";
-        }else {
+        } else if (prefix.equals(AppConstants.PREFIX_ORDER)) {
+            tableName = "orders";
+            idColumn = "order_id";
+        } else if (prefix.equals(AppConstants.PREFIX_ORDER_ITEM)) {
+            tableName = "order_items";
+            idColumn = "order_item_id";
+        } else {
             throw new IllegalArgumentException("Unknown prefix for ID generation: " + prefix);
         }
 
