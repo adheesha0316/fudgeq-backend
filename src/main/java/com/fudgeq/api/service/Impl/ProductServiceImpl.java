@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +61,7 @@ public class ProductServiceImpl implements ProductService {
         auditService.logAction(moderatorEmail, "PRODUCT_CREATE",
                 "New product submitted: " + product.getName(), productId, false);
 
-        return mapper.map(savedProduct, ProductResponseDto.class);
+        return convertToResponseDto(savedProduct);
     }
 
     @Override
@@ -81,16 +82,15 @@ public class ProductServiceImpl implements ProductService {
         String logDetail = "Product " + dto.getStatus() + ". Remarks: " + dto.getAdminRemarks();
         auditService.logAction(adminEmail, "PRODUCT_STATUS_UPDATE", logDetail, productId, true);
 
-        return mapper.map(updated, ProductResponseDto.class);
+        return convertToResponseDto(updated);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ProductResponseDto> getActiveProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        // Custom repo method to find only APPROVED and Available products
         return productRepo.findByStatus(ProductStatus.APPROVED, pageable)
-                .map(product -> mapper.map(product, ProductResponseDto.class));
+                .map(this::convertToResponseDto);
     }
 
     @Override
@@ -98,7 +98,7 @@ public class ProductServiceImpl implements ProductService {
     public Page<ProductResponseDto> getAllProductsForAdmin(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return productRepo.findAll(pageable)
-                .map(product -> mapper.map(product, ProductResponseDto.class));
+                .map(this::convertToResponseDto);
     }
 
     @Override
@@ -106,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponseDto getProductById(String productId) {
         Product product = productRepo.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
-        return mapper.map(product, ProductResponseDto.class);
+        return convertToResponseDto(product);
     }
 
     @Override
@@ -123,13 +123,18 @@ public class ProductServiceImpl implements ProductService {
         product.setWeightGrams(dto.getWeightGrams());
         product.setSignature(dto.isSignature());
 
-        // Update images only if new ones are provided
+        // Handle image updates with cleanup
         if (dto.getImages() != null && !dto.getImages().isEmpty()) {
-            List<String> newImages = fileStorageService.storeMultipleFiles(dto.getImages(), "products");
-            product.setImageUrls(newImages);
+            // Delete old physical files to save storage
+            if (product.getImageUrls() != null) {
+                fileStorageService.deleteMultipleFiles(product.getImageUrls());
+            }
+            // Store new files and update relative paths
+            List<String> newRelativePaths = fileStorageService.storeMultipleFiles(dto.getImages(), "products");
+            product.setImageUrls(newRelativePaths);
         }
 
-        // Reset to PENDING after major update
+        // Reset to PENDING after updates
         product.setStatus(ProductStatus.PENDING_APPROVAL);
 
         Product updated = productRepo.save(product);
@@ -137,7 +142,7 @@ public class ProductServiceImpl implements ProductService {
         auditService.logAction(actorEmail, "PRODUCT_UPDATE",
                 "Updated product: " + product.getName(), productId, false);
 
-        return mapper.map(updated, ProductResponseDto.class);
+        return convertToResponseDto(updated);
     }
 
     @Override
@@ -179,5 +184,21 @@ public class ProductServiceImpl implements ProductService {
 
         auditService.logAction(actorEmail, "PRODUCT_DELETE",
                 "Archived product: " + product.getName(), productId, true);
+    }
+
+    /**
+     * Helper to map Entity to DTO and resolve full image URLs
+     */
+    private ProductResponseDto convertToResponseDto(Product product) {
+        ProductResponseDto dto = mapper.map(product, ProductResponseDto.class);
+
+        if (product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
+            List<String> fullUrls = product.getImageUrls().stream()
+                    .map(fileStorageService::getFullUrl)
+                    .collect(Collectors.toList());
+            dto.setImageUrls(fullUrls);
+        }
+
+        return dto;
     }
 }

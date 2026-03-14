@@ -1,6 +1,7 @@
 package com.fudgeq.api.service.Impl;
 
 import com.fudgeq.api.service.FileStorageService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class FileStorageServiceImpl implements FileStorageService {
 
     @Value("${file.upload-dir}")
@@ -49,15 +51,37 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public List<String> storeMultipleFiles(List<MultipartFile> files, String subFolder) {
-        List<String> fileUrls = new ArrayList<>();
+        List<String> filePaths = new ArrayList<>();
         if (files != null) {
             for (MultipartFile file : files) {
-                if (!file.isEmpty()) {
-                    String url = storeFile(file, subFolder);
-                    if (url != null) fileUrls.add(url);
-                }
+                String path = storeFile(file, subFolder);
+                if (path != null) filePaths.add(path);
             }
         }
-        return fileUrls;
+        return filePaths;
+    }
+
+    @Override
+    public void deleteFile(String relativePath) {
+        if (relativePath == null || relativePath.isEmpty()) return;
+        try {
+            Path filePath = Paths.get(uploadDir).resolve(relativePath).toAbsolutePath().normalize();
+            Files.deleteIfExists(filePath);
+        } catch (IOException ex) {
+            log.error("Could not delete file: {}", relativePath, ex);
+        }
+    }
+
+    @Override
+    public void deleteMultipleFiles(List<String> relativePaths) {
+        if (relativePaths != null) {
+            relativePaths.forEach(this::deleteFile);
+        }
+    }
+
+    @Override
+    public String getFullUrl(String relativePath) {
+        if (relativePath == null || relativePath.isEmpty()) return null;
+        return baseUrl + relativePath;
     }
 }
