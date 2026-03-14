@@ -15,6 +15,7 @@ public class LoginResponseDto {
 
     private String userId;
     private String email;
+    private UserDtoReturn user;
     private String token;
     private Role role;
     private String firstName;
