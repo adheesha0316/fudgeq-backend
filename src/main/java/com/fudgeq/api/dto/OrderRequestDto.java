@@ -31,4 +31,6 @@ public class OrderRequestDto {
 
     @NotNull(message = "Payment method is required")
     private PaymentMethod paymentMethod;
+
+    private String couponCode;
 }
