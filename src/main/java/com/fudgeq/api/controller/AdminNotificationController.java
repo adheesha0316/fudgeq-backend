@@ -1,6 +1,7 @@
 package com.fudgeq.api.controller;
 
 import com.fudgeq.api.dto.NotificationResponseDto;
+import com.fudgeq.api.dto.StandardResponse;
 import com.fudgeq.api.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,23 +19,22 @@ public class AdminNotificationController {
 
     private final NotificationService notificationService;
 
-    /**
-     * Get all notifications sent to a specific user to track their engagement
-     */
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<NotificationResponseDto>> getUserNotifications(@PathVariable String userId) {
-        return ResponseEntity.ok(notificationService.getNotificationsByUserId(userId));
+    public ResponseEntity<StandardResponse<List<NotificationResponseDto>>> getUserNotifications(@PathVariable String userId) {
+        List<NotificationResponseDto> notifications = notificationService.getNotificationsByUserId(userId);
+        return ResponseEntity.ok(
+                StandardResponse.success("Engagement notifications for user " + userId + " retrieved", notifications)
+        );
     }
 
-    /**
-     * Send a manual custom notification to a user for specific updates
-     */
     @PostMapping("/send-manual")
-    public ResponseEntity<Void> sendManualNotification(
+    public ResponseEntity<StandardResponse<Void>> sendManualNotification(
             @RequestParam String userId,
             @RequestParam String title,
             @RequestParam String message) {
         notificationService.sendManualNotification(userId, title, message);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(
+                StandardResponse.success("Manual notification sent successfully to user: " + userId, null)
+        );
     }
 }
