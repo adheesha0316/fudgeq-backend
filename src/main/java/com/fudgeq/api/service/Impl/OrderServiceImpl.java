@@ -10,6 +10,7 @@ import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.OrderStatus;
 import com.fudgeq.api.repo.CartRepo;
 import com.fudgeq.api.repo.OrderRepo;
+import com.fudgeq.api.service.NotificationService;
 import com.fudgeq.api.service.OrderService;
 import com.fudgeq.api.service.UserService;
 import com.fudgeq.api.utill.AppConstants;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
     private final OrderRepo orderRepo;
     private final CartRepo cartRepo;
+    private final NotificationService notificationService;
     private final UserService userService;
     private final CustomIdGenerator idGenerator;
     private final ModelMapper mapper;
@@ -114,12 +116,26 @@ public class OrderServiceImpl implements OrderService {
         OrderStatus newStatus = OrderStatus.valueOf(status);
         order.setStatus(newStatus);
 
-        // Handle rejection or cancellation reasons
-        if (newStatus == OrderStatus.REJECTED || newStatus == OrderStatus.CANCELLED) {
+        String title = "";
+        String message = "";
+
+        if (newStatus == OrderStatus.CONFIRMED) {
+            title = "Order Confirmed! 🎉";
+            message = "Your order " + orderId + " has been confirmed by Admin. You can now proceed with the payment.";
+        } else if (newStatus == OrderStatus.REJECTED || newStatus == OrderStatus.CANCELLED) {
             order.setRejectionReason(reason);
+            title = "Order Update: " + newStatus;
+            message = "Order " + orderId + " was " + newStatus.toString().toLowerCase() + ". Reason: " + (reason != null ? reason : "Not specified");
         }
 
-        return convertToResponseDto(orderRepo.save(order));
+        Order savedOrder = orderRepo.save(order);
+
+        // Send notification to user after status update
+        if (!title.isEmpty()) {
+            notificationService.createNotification(order.getUser(), title, message, orderId);
+        }
+
+        return convertToResponseDto(savedOrder);
     }
 
     @Override
@@ -128,13 +144,20 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        // Business Logic: Payment is only allowed for Admin-confirmed orders
         if (order.getStatus() != OrderStatus.CONFIRMED) {
             throw new RuntimeException("Order must be confirmed by admin before processing payment.");
         }
 
         order.setPaid(true);
         orderRepo.save(order);
+
+        // Notify user about successful payment receipt
+        notificationService.createNotification(
+                order.getUser(),
+                "Payment Received ✅",
+                "We have received your payment for order " + orderId + ". Your fudge is being prepared!",
+                orderId
+        );
     }
 
     /**
