@@ -2,6 +2,7 @@ package com.fudgeq.api.controller;
 
 import com.fudgeq.api.dto.OrderRequestDto;
 import com.fudgeq.api.dto.OrderResponseDto;
+import com.fudgeq.api.dto.StandardResponse;
 import com.fudgeq.api.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,24 +21,30 @@ public class OrderController {
 
     @PostMapping("/place")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<OrderResponseDto> placeOrder(@Valid @RequestBody OrderRequestDto dto) {
-        // Creates a new order from current user's cart
-        return ResponseEntity.ok(orderService.placeOrder(dto));
+    public ResponseEntity<StandardResponse<OrderResponseDto>> placeOrder(@Valid @RequestBody OrderRequestDto dto) {
+        OrderResponseDto order = orderService.placeOrder(dto);
+        return ResponseEntity.ok(
+                StandardResponse.success("Order placed successfully. Awaiting admin review.", order)
+        );
     }
 
     @GetMapping("/my-history")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Page<OrderResponseDto>> getMyHistory(
+    public ResponseEntity<StandardResponse<Page<OrderResponseDto>>> getMyHistory(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        // Returns paginated order history for the logged-in customer
-        return ResponseEntity.ok(orderService.getMyOrderHistory(page, size));
+        Page<OrderResponseDto> history = orderService.getMyOrderHistory(page, size);
+        return ResponseEntity.ok(
+                StandardResponse.success("Order history retrieved successfully", history)
+        );
     }
 
     @GetMapping("/{orderId}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<OrderResponseDto> getOrder(@PathVariable String orderId) {
-        // Detailed view of a specific order
-        return ResponseEntity.ok(orderService.getOrderById(orderId));
+    public ResponseEntity<StandardResponse<OrderResponseDto>> getOrder(@PathVariable String orderId) {
+        OrderResponseDto order = orderService.getOrderById(orderId);
+        return ResponseEntity.ok(
+                StandardResponse.success("Order details retrieved", order)
+        );
     }
 }
