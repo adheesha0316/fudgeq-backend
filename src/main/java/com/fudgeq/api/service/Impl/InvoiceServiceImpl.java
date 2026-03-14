@@ -3,11 +3,13 @@ package com.fudgeq.api.service.Impl;
 import com.fudgeq.api.dto.InvoiceResponseDto;
 import com.fudgeq.api.entity.Invoice;
 import com.fudgeq.api.entity.Order;
+import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.InvoiceType;
 import com.fudgeq.api.repo.InvoiceRepo;
 import com.fudgeq.api.repo.OrderRepo;
 import com.fudgeq.api.service.FileStorageService;
 import com.fudgeq.api.service.InvoiceService;
+import com.fudgeq.api.service.UserService;
 import com.fudgeq.api.utill.AppConstants;
 import com.fudgeq.api.utill.CustomIdGenerator;
 import com.itextpdf.io.source.ByteArrayOutputStream;
@@ -17,6 +19,11 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +37,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final OrderRepo orderRepo;
     private final CustomIdGenerator idGenerator;
     private final FileStorageService fileStorageService;
+    private final UserService userService;
     private final ModelMapper mapper;
 
     @Override
@@ -66,6 +74,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
+        validateOwnership(order.getUser()); // Check if the customer owns this order
+
         Invoice invoice = invoiceRepo.findByOrderAndInvoiceType(order, type)
                 .orElseThrow(() -> new RuntimeException(type + " invoice not found for this order"));
 
@@ -78,7 +88,47 @@ public class InvoiceServiceImpl implements InvoiceService {
         Invoice invoice = invoiceRepo.findById(invoiceId)
                 .orElseThrow(() -> new RuntimeException("Invoice not found"));
 
+        validateOwnership(invoice.getOrder().getUser()); // Security check
+
         return fileStorageService.loadFileAsResource(invoice.getPdfFilePath());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<InvoiceResponseDto> getAllInvoices(int page, int size) {
+        return invoiceRepo.findAll(PageRequest.of(page, size, Sort.by("generatedAt").descending()))
+                .map(this::convertToDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceResponseDto getInvoiceById(String invoiceId) {
+        Invoice invoice = invoiceRepo.findById(invoiceId)
+                .orElseThrow(() -> new RuntimeException("Invoice not found"));
+        return convertToDto(invoice);
+    }
+
+    /**
+     * Helper to ensure customers can only access their own data.
+     * Admins bypass this check.
+     */
+    private void validateOwnership(User resourceOwner) {
+        // 1. Get the currently logged-in user's entity from our UserService
+        User currentUser = userService.getCurrentUserEntity();
+
+        // 2. Get the Authentication object from Spring Security Context
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        // 3. Check if the current user has the 'ROLE_ADMIN' authority
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        // 4. Security Logic:
+        // If the user is NOT an admin AND the resource owner's ID
+        // doesn't match the current user's ID, throw an exception.
+        if (!isAdmin && !resourceOwner.getUserId().equals(currentUser.getUserId())) {
+            throw new RuntimeException("Access Denied: You do not own this resource.");
+        }
     }
 
     private InvoiceResponseDto convertToDto(Invoice invoice) {
