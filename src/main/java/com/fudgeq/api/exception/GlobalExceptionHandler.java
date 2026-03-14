@@ -1,6 +1,7 @@
 package com.fudgeq.api.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -9,15 +10,17 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Validation Errors (e.g., @NotBlank, @Email in DTOs)
+    // 1. Validation Errors
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -27,92 +30,64 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Validation Error")
-                .message("Input values are invalid")
-                .timestamp(LocalDateTime.now())
-                .validationErrors(errors)
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", "Input values are invalid", errors);
     }
 
-    // 2. Custom Business Errors (User Already Exists)
-    @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ApiErrorResponse> handleUserConflict(UserAlreadyExistsException ex) {
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.CONFLICT.value())
-                .error("Conflict")
-                .message(ex.getMessage())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    // 2. Business Logic Exceptions (e.g., UserAlreadyExists, Insufficient Stock)
+    @ExceptionHandler({UserAlreadyExistsException.class, IllegalStateException.class})
+    public ResponseEntity<ApiErrorResponse> handleBusinessLogic(RuntimeException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Business Logic Conflict", ex.getMessage(), null);
     }
 
-    // 3. Security Errors (Login failures)
+    // 3. Security: Authentication Failures
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuth(AuthenticationException ex) {
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .error("Unauthorized")
-                .message("Invalid email or password")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        return buildResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", "Authentication failed: " + ex.getMessage(), null);
     }
 
-    // 4. Access Denied (Unauthorized roles)
+    // 4. Security: Access Denied
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex) {
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.FORBIDDEN.value())
-                .error("Forbidden")
-                .message("You do not have permission to access this resource.")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+        return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", "You do not have permission to access this resource.", null);
     }
 
-    // 5. Resource Not Found (Entity not in DB)
+    // 5. Resource Not Found
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFound(EntityNotFoundException ex) {
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .error("Not Found")
-                .message(ex.getMessage())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        return buildResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), null);
     }
 
-    // 6. Generic Runtime Exceptions
+    // 6. Invalid Enum Values or Bad Logic (e.g., Invalid OrderStatus)
+    @ExceptionHandler({IllegalArgumentException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiErrorResponse> handleBadRequest(Exception ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", "Invalid input or parameter: " + ex.getMessage(), null);
+    }
+
+    // 7. ID Generation or Database Lock Errors (From CustomIdGenerator)
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiErrorResponse> handleRuntime(RuntimeException ex) {
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Internal Request Error")
-                .message(ex.getMessage())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        log.error("Runtime Exception: ", ex); // Log the stack trace for internal debugging
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Request Error", ex.getMessage(), null);
     }
 
-    // 7. General Catch-All
+    // 8. General Catch-All
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneral(Exception ex) {
-        ApiErrorResponse response = ApiErrorResponse.builder()
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error("Server Error")
-                .message("An unexpected error occurred.")
-                .timestamp(LocalDateTime.now())
-                .build();
+        log.error("Unexpected Error: ", ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Server Error", "An unexpected error occurred. Please contact support.", null);
+    }
 
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    /**
+     * Helper method to maintain consistent response structure
+     */
+    private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, String error, String message, Map<String, String> validationErrors) {
+        ApiErrorResponse response = ApiErrorResponse.builder()
+                .status(status.value())
+                .error(error)
+                .message(message)
+                .timestamp(LocalDateTime.now())
+                .validationErrors(validationErrors)
+                .build();
+        return new ResponseEntity<>(response, status);
     }
 }
