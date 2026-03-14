@@ -2,6 +2,7 @@ package com.fudgeq.api.controller;
 
 import com.fudgeq.api.dto.CartRequestDto;
 import com.fudgeq.api.dto.CartResponseDto;
+import com.fudgeq.api.dto.StandardResponse;
 import com.fudgeq.api.service.CartService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,30 +21,40 @@ public class CartController {
     private final CartService cartService;
 
     @PostMapping("/add")
-    @PreAuthorize("hasRole('CUSTOMER')") // Only registered customers can add to cart
-    public ResponseEntity<CartResponseDto> addToCart(@Valid @RequestBody CartRequestDto dto) {
-        return ResponseEntity.ok(cartService.addToCart(dto));
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<StandardResponse<CartResponseDto>> addToCart(@Valid @RequestBody CartRequestDto dto) {
+        CartResponseDto cartItem = cartService.addToCart(dto);
+        return ResponseEntity.ok(
+                StandardResponse.success("Item added to cart successfully", cartItem)
+        );
     }
 
     @GetMapping("/my-cart")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<List<CartResponseDto>> getMyCart() {
-        return ResponseEntity.ok(cartService.getMyCart());
+    public ResponseEntity<StandardResponse<List<CartResponseDto>>> getMyCart() {
+        List<CartResponseDto> cart = cartService.getMyCart();
+        return ResponseEntity.ok(
+                StandardResponse.success("Cart retrieved successfully", cart)
+        );
     }
 
     @DeleteMapping("/remove/{cartItemId}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Void> removeFromCart(@PathVariable String cartItemId) {
+    public ResponseEntity<StandardResponse<Void>> removeFromCart(@PathVariable String cartItemId) {
         cartService.removeFromCart(cartItemId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(
+                StandardResponse.success("Item removed from cart", null)
+        );
     }
 
     @PatchMapping("/update-quantity/{cartItemId}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Void> updateQuantity(
+    public ResponseEntity<StandardResponse<Void>> updateQuantity(
             @PathVariable String cartItemId,
             @RequestParam int quantity) {
         cartService.updateQuantity(cartItemId, quantity);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(
+                StandardResponse.success("Cart quantity updated to " + quantity, null)
+        );
     }
 }

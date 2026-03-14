@@ -1,6 +1,7 @@
 package com.fudgeq.api.controller;
 
 import com.fudgeq.api.dto.CartResponseDto;
+import com.fudgeq.api.dto.StandardResponse;
 import com.fudgeq.api.service.CartService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,16 +19,19 @@ public class AdminCartController {
 
     private final CartService cartService;
 
-    // To see a specific user's current cart (Helpful for customer support or AI analysis)
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<CartResponseDto>> getUserCart(@PathVariable String userId) {
-        // Note: You'll need to add a method in CartService to get cart by userId
-        return ResponseEntity.ok(cartService.getCartByUserId(userId));
+    public ResponseEntity<StandardResponse<List<CartResponseDto>>> getUserCart(@PathVariable String userId) {
+        List<CartResponseDto> userCart = cartService.getCartByUserId(userId);
+        return ResponseEntity.ok(
+                StandardResponse.success("Cart retrieved for user: " + userId, userCart)
+        );
     }
 
-    // To see all active carts in the system (For global analytics)
     @GetMapping("/all-active")
-    public ResponseEntity<List<CartResponseDto>> getAllActiveCarts() {
-        return ResponseEntity.ok(cartService.getAllActiveCarts());
+    public ResponseEntity<StandardResponse<List<CartResponseDto>>> getAllActiveCarts() {
+        List<CartResponseDto> activeCarts = cartService.getAllActiveCarts();
+        return ResponseEntity.ok(
+                StandardResponse.success("All active carts in the system retrieved", activeCarts)
+        );
     }
 }
