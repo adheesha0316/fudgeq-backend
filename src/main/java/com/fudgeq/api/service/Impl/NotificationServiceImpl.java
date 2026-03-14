@@ -4,6 +4,7 @@ import com.fudgeq.api.dto.NotificationResponseDto;
 import com.fudgeq.api.entity.Notification;
 import com.fudgeq.api.entity.User;
 import com.fudgeq.api.repo.NotificationRepo;
+import com.fudgeq.api.repo.UserRepo;
 import com.fudgeq.api.service.NotificationService;
 import com.fudgeq.api.service.UserService;
 import com.fudgeq.api.utill.AppConstants;
@@ -22,6 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepo notificationRepo;
     private final UserService userService;
+    private final UserRepo userRepo;
     private final CustomIdGenerator idGenerator;
     private final ModelMapper mapper;
 
@@ -60,5 +62,25 @@ public class NotificationServiceImpl implements NotificationService {
     public long getUnreadCount() {
         User currentUser = userService.getCurrentUserEntity();
         return notificationRepo.countByUserAndIsReadFalse(currentUser);
+    }
+
+    @Override
+    public List<NotificationResponseDto> getNotificationsByUserId(String userId) {
+        // Admin checking notification status for a specific user
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return notificationRepo.findByUserOrderByCreatedAtDesc(user).stream()
+                .map(n -> mapper.map(n, NotificationResponseDto.class))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void sendManualNotification(String userId, String title, String message) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        createNotification(user, title, message, null); // Manual notification might not have an orderId
     }
 }

@@ -10,4 +10,7 @@ public interface NotificationService {
     List<NotificationResponseDto> getMyNotifications();
     void markAsRead(String notificationId);
     long getUnreadCount();
+
+    List<NotificationResponseDto> getNotificationsByUserId(String userId);
+    void sendManualNotification(String userId, String title, String message);
 }
