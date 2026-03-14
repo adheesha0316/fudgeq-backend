@@ -35,6 +35,9 @@ public class CustomIdGenerator {
         } else if (prefix.equals(AppConstants.PREFIX_ORDER_ITEM)) {
             tableName = "order_items";
             idColumn = "order_item_id";
+        } else if (prefix.equals(AppConstants.PREFIX_NOTIFICATION)) { // Notification logic added
+            tableName = "notifications";
+            idColumn = "notification_id";
         } else {
             throw new IllegalArgumentException("Unknown prefix for ID generation: " + prefix);
         }
