@@ -30,6 +30,7 @@ public class Notification extends BaseEntity {
     @Column(name = "is_read")
     private boolean isRead = false;
 
-    @Column(name = "order_id")
-    private String orderId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
 }
