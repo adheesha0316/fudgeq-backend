@@ -9,4 +9,5 @@ public class AppConstants {
     public static final String PREFIX_ORDER = "FQ-ORD-";
     public static final String PREFIX_ORDER_ITEM = "FQ-ORI-";
     public static final String PREFIX_NOTIFICATION = "FQ-NTF-";
+    public static final String PREFIX_COUPON = "FQ-CPN-";
 }
