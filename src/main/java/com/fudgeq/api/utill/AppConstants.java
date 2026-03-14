@@ -11,4 +11,5 @@ public class AppConstants {
     public static final String PREFIX_NOTIFICATION = "FQ-NTF-";
     public static final String PREFIX_COUPON = "FQ-CPN-";
     public static final String PREFIX_INVOICE = "FQ-INV-";
+    public static final String PREFIX_EMAIL_LOG = "FQ-ELG-";
 }
