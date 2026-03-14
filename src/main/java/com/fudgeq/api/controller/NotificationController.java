@@ -4,6 +4,7 @@ import com.fudgeq.api.dto.NotificationResponseDto;
 import com.fudgeq.api.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
 @CrossOrigin
+@PreAuthorize("hasRole('CUSTOMER')")
 public class NotificationController {
 
     private final NotificationService notificationService;
