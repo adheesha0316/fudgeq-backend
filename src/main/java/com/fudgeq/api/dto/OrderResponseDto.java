@@ -1,12 +1,14 @@
 package com.fudgeq.api.dto;
 
 import com.fudgeq.api.enums.OrderStatus;
+import com.fudgeq.api.enums.PaymentMethod;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,8 +22,13 @@ public class OrderResponseDto {
     private String customerName;
     private BigDecimal totalAmount;
     private OrderStatus status;
+    private String rejectionReason;
     private String deliveryAddress;
     private String contactNumber;
+    private String note;
+    private LocalDate preferredDeliveryDate;
+    private PaymentMethod paymentMethod;
+    private boolean isPaid;
     private LocalDateTime createdAt;
     private List<OrderItemDto> items;
 }

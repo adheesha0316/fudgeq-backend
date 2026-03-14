@@ -1,10 +1,12 @@
 package com.fudgeq.api.entity;
 
 import com.fudgeq.api.enums.OrderStatus;
+import com.fudgeq.api.enums.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -35,6 +37,9 @@ public class Order extends BaseEntity{
     @Column(nullable = false)
     private OrderStatus status;
 
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
     @Column(name = "delivery_address", nullable = false)
     private String deliveryAddress;
 
@@ -43,4 +48,14 @@ public class Order extends BaseEntity{
 
     @Column(columnDefinition = "TEXT")
     private String note;
+
+    @Column(name = "preferred_delivery_date", nullable = false)
+    private LocalDate preferredDeliveryDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false)
+    private PaymentMethod paymentMethod;
+
+    @Column(name = "is_paid")
+    private boolean isPaid = false;
 }
