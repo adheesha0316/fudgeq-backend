@@ -1,6 +1,7 @@
 package com.fudgeq.api.controller;
 
 import com.fudgeq.api.dto.OrderItemDto;
+import com.fudgeq.api.dto.StandardResponse;
 import com.fudgeq.api.service.OrderItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,32 +19,27 @@ public class AnalyticsController {
 
     private final OrderItemService orderItemService;
 
-    /**
-     * Get top-selling products for dashboard charts
-     */
     @GetMapping("/top-selling")
-    public ResponseEntity<List<OrderItemDto>> getTopSelling(@RequestParam(defaultValue = "5") int limit) {
-        return ResponseEntity.ok(orderItemService.getTopSellingProducts(limit));
+    public ResponseEntity<StandardResponse<List<OrderItemDto>>> getTopSelling(@RequestParam(defaultValue = "5") int limit) {
+        List<OrderItemDto> topProducts = orderItemService.getTopSellingProducts(limit);
+        return ResponseEntity.ok(
+                StandardResponse.success("Top selling products retrieved for analytics", topProducts)
+        );
     }
 
-    /**
-     * Get all items sold for detailed sales reports
-     */
     @GetMapping("/sales-report")
-    public ResponseEntity<List<OrderItemDto>> getFullSalesReport() {
-        return ResponseEntity.ok(orderItemService.getAllSoldItems());
+    public ResponseEntity<StandardResponse<List<OrderItemDto>>> getFullSalesReport() {
+        List<OrderItemDto> salesReport = orderItemService.getAllSoldItems();
+        return ResponseEntity.ok(
+                StandardResponse.success("Detailed sales report generated", salesReport)
+        );
     }
 
-    /**
-     * Get items by a specific order ID (Admin view)
-     */
     @GetMapping("/order-items/{orderId}")
-    public ResponseEntity<List<OrderItemDto>> getItemsByOrder(@PathVariable String orderId) {
-        return ResponseEntity.ok(orderItemService.getItemsByOrderId(orderId));
+    public ResponseEntity<StandardResponse<List<OrderItemDto>>> getItemsByOrder(@PathVariable String orderId) {
+        List<OrderItemDto> items = orderItemService.getItemsByOrderId(orderId);
+        return ResponseEntity.ok(
+                StandardResponse.success("Items for order " + orderId + " retrieved", items)
+        );
     }
-
-    /**
-     * AI / Trend Analysis - This could return grouped data in the future
-     * For now, we use the existing sales-report logic
-     */
 }
