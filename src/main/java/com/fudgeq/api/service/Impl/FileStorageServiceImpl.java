@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,6 +47,34 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         } catch (IOException ex) {
             throw new RuntimeException("Could not store file. Please try again!", ex);
+        }
+    }
+
+    @Override
+    public String storeFile(ByteArrayInputStream inputStream, String fileName, String subFolder) {
+        try {
+            Path uploadPath = Paths.get("uploads").resolve(subFolder);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            Path filePath = uploadPath.resolve(fileName);
+            Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            return subFolder + "/" + fileName;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store generated PDF file", e);
+        }
+    }
+
+    @Override
+    public ByteArrayInputStream loadFileAsResource(String filePath) {
+        try {
+            Path path = Paths.get("uploads").resolve(filePath).normalize();
+            byte[] data = Files.readAllBytes(path);
+            return new ByteArrayInputStream(data);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not read file: " + filePath, e);
         }
     }
 
