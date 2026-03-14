@@ -11,10 +11,7 @@ import com.fudgeq.api.entity.User;
 import com.fudgeq.api.enums.OrderStatus;
 import com.fudgeq.api.repo.CartRepo;
 import com.fudgeq.api.repo.OrderRepo;
-import com.fudgeq.api.service.CouponService;
-import com.fudgeq.api.service.NotificationService;
-import com.fudgeq.api.service.OrderService;
-import com.fudgeq.api.service.UserService;
+import com.fudgeq.api.service.*;
 import com.fudgeq.api.utill.AppConstants;
 import com.fudgeq.api.utill.CustomIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
     private final CouponService couponService;
     private final CustomIdGenerator idGenerator;
     private final ModelMapper mapper;
+    private final InvoiceService invoiceService;
 
     @Override
     @Transactional
@@ -154,8 +152,6 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         OrderStatus newStatus = OrderStatus.valueOf(status);
-
-        // 🚩 Validate if the status transition is allowed
         validateStatusTransition(order.getStatus(), newStatus);
 
         order.setStatus(newStatus);
@@ -166,7 +162,10 @@ public class OrderServiceImpl implements OrderService {
         switch (newStatus) {
             case CONFIRMED -> {
                 title = "Order Confirmed! 🎉";
-                message = "Your order " + orderId + " has been confirmed. You can now proceed with the payment.";
+                message = "Your order " + orderId + " has been confirmed. We've sent the order invoice to your email.";
+
+                // Trigger: Create ORDERING Invoice when confirmed (mainly for COD/Advance info)
+                invoiceService.createInvoice(order, com.fudgeq.api.enums.InvoiceType.ORDERING);
             }
             case REJECTED -> {
                 order.setRejectionReason(reason);
@@ -188,11 +187,9 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Order savedOrder = orderRepo.save(order);
-
         if (!title.isEmpty()) {
             notificationService.createNotification(order.getUser(), title, message, savedOrder);
         }
-
         return convertToResponseDto(savedOrder);
     }
 
@@ -212,6 +209,9 @@ public class OrderServiceImpl implements OrderService {
         // Transition order status to PROCESSING automatically upon payment receipt
         order.setStatus(OrderStatus.PROCESSING);
         Order savedOrder = orderRepo.save(order);
+
+        // Trigger: Create PAYMENT Invoice (Final Receipt) upon successful payment
+        invoiceService.createInvoice(savedOrder, com.fudgeq.api.enums.InvoiceType.PAYMENT);
 
         // Notify user about successful payment - passing the savedOrder object as per new relational mapping
         notificationService.createNotification(
