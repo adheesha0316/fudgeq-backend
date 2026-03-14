@@ -36,7 +36,6 @@ public class CartServiceImpl implements CartService {
     public CartResponseDto addToCart(CartRequestDto dto) {
         User currentUser = userService.getCurrentUserEntity();
 
-        // 🛡️ ROLE VALIDATION: "First you need to register" logic
         if (currentUser.getRole() == Role.VISITOR) {
             throw new RuntimeException("Access Denied: Please register as a Customer to add items to cart.");
         }
@@ -44,16 +43,25 @@ public class CartServiceImpl implements CartService {
         Product product = productRepo.findById(dto.getProductId())
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        // Check if item already exists in cart
+        // 🛡️ CAPACITY VALIDATION
+        if (dto.getQuantity() > product.getDailyCapacity()) {
+            throw new RuntimeException("Sorry! We can only prepare up to " + product.getDailyCapacity() + " units of " + product.getName() + " per day.");
+        }
+
         CartItem cartItem = cartRepo.findByUserAndProduct(currentUser, product)
                 .map(item -> {
-                    // Update existing quantity
-                    item.setQuantity(item.getQuantity() + dto.getQuantity());
-                    item.setSubTotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+                    int totalNewQuantity = item.getQuantity() + dto.getQuantity();
+
+                    // Re-check capacity for total combined quantity
+                    if (totalNewQuantity > product.getDailyCapacity()) {
+                        throw new RuntimeException("Total quantity in cart (" + totalNewQuantity + ") exceeds daily capacity of " + product.getDailyCapacity());
+                    }
+
+                    item.setQuantity(totalNewQuantity);
+                    item.setSubTotal(product.getPrice().multiply(BigDecimal.valueOf(totalNewQuantity)));
                     return item;
                 })
                 .orElseGet(() -> {
-                    // Create new cart item
                     return CartItem.builder()
                             .cartItemId(idGenerator.generateNextId(AppConstants.PREFIX_CART))
                             .user(currentUser)
@@ -87,6 +95,11 @@ public class CartServiceImpl implements CartService {
     public void updateQuantity(String cartItemId, int quantity) {
         CartItem item = cartRepo.findById(cartItemId)
                 .orElseThrow(() -> new RuntimeException("Cart item not found"));
+
+        // 🛡️ CAPACITY VALIDATION during manual quantity update
+        if (quantity > item.getProduct().getDailyCapacity()) {
+            throw new RuntimeException("Quantity exceeds daily limit of " + item.getProduct().getDailyCapacity());
+        }
 
         item.setQuantity(quantity);
         item.setSubTotal(item.getUnitPrice().multiply(BigDecimal.valueOf(quantity)));
